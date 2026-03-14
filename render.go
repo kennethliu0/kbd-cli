@@ -11,15 +11,20 @@ import (
 const wordsPerLine = 12
 
 func (m model) renderView() string {
+	var content string
 	switch m.phase {
 	case phaseReady:
-		return m.renderReady()
+		content = m.renderReady()
 	case phaseTyping:
-		return m.renderTyping()
+		content = m.renderTyping()
 	case phaseDone:
-		return m.renderDone()
+		content = m.renderDone()
 	}
-	return ""
+
+	if m.width > 0 && m.height > 0 {
+		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
+	}
+	return content
 }
 
 func (m model) renderReady() string {

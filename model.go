@@ -35,6 +35,9 @@ type model struct {
 	// Keyboard visualization
 	kbdLayout [][]KeyDef
 	keyStates map[string]KeyState
+
+	// Terminal dimensions
+	width, height int
 }
 
 func initialModel() model {
@@ -90,6 +93,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m, timerTick()
+
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		return m, nil
 
 	case flashTickMsg:
 		if m.keyStates[msg.keyID] == KeyFlashing {
