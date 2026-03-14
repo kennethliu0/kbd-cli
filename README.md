@@ -13,8 +13,6 @@ A monkeytype-style typing speed test for the terminal, built with [Bubble Tea](h
 
 ## Install
 
-Not currently launched
-
 ```
 go install github.com/kennethliu0/kbd-cli@latest
 ```
