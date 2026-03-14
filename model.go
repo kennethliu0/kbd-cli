@@ -1,27 +1,57 @@
 package main
 
 import (
+	"strings"
 	"time"
 
 	tea "charm.land/bubbletea/v2"
 )
 
+type phase int
+
+const (
+	phaseReady phase = iota
+	phaseTyping
+	phaseDone
+)
+
+var durations = []int{15, 30, 60}
+
+type tickMsg time.Time
 type flashTickMsg struct{ keyID string }
 
 type model struct {
+	phase        phase
+	words        []string
+	input        [][]rune
+	wordIdx      int
+	durationIdx  int
+	timeLeft     int
+	startTime    time.Time
+	totalChars   int
+	totalTyped   int
+	correctChars int
+
+	// Keyboard visualization
+	kbdLayout [][]KeyDef
 	keyStates map[string]KeyState
-	layout    [][]KeyDef
-	keyLookup map[string]string
 }
 
 func initialModel() model {
-	layout := buildLayout()
-	lookup := buildKeyLookup(layout)
+	return newTest(1)
+}
 
+func newTest(durationIdx int) model {
+	words := generateWords(200)
+	input := make([][]rune, len(words))
 	return model{
-		keyStates: make(map[string]KeyState),
-		layout:    layout,
-		keyLookup: lookup,
+		phase:       phaseReady,
+		words:       words,
+		input:       input,
+		durationIdx: durationIdx,
+		timeLeft:    durations[durationIdx],
+		kbdLayout:   buildKeyboardLayout(),
+		keyStates:   make(map[string]KeyState),
 	}
 }
 
@@ -29,35 +59,41 @@ func (m model) Init() tea.Cmd {
 	return nil
 }
 
+func timerTick() tea.Cmd {
+	return tea.Tick(time.Second, func(t time.Time) tea.Msg {
+		return tickMsg(t)
+	})
+}
+
+func flashKey(keyID string) tea.Cmd {
+	return tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
+		return flashTickMsg{keyID: keyID}
+	})
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyPressMsg:
-		// Ctrl+C is the only exit
 		if msg.Mod&tea.ModCtrl != 0 && msg.Code == 'c' {
 			return m, tea.Quit
 		}
+		return m.handleKey(msg)
 
-		var cmds []tea.Cmd
-
-		// Match the key itself
-		keyStr := msg.String()
-		if keyID, ok := m.keyLookup[keyStr]; ok {
-			cmds = append(cmds, m.markKey(keyID)...)
+	case tickMsg:
+		if m.phase != phaseTyping {
+			return m, nil
 		}
-
-		// Also try matching just the character for shifted combos
-		if msg.Code > 0 {
-			c := string(rune(msg.Code))
-			if keyID, ok := m.keyLookup[c]; ok {
-				cmds = append(cmds, m.markKey(keyID)...)
-			}
+		m.timeLeft--
+		if m.timeLeft <= 0 {
+			m.phase = phaseDone
+			m.calcResults()
+			return m, nil
 		}
-
-		return m, tea.Batch(cmds...)
+		return m, timerTick()
 
 	case flashTickMsg:
-		if m.keyStates[msg.keyID] == StateFlashing {
-			m.keyStates[msg.keyID] = StateUntested
+		if m.keyStates[msg.keyID] == KeyFlashing {
+			m.keyStates[msg.keyID] = KeyUntested
 		}
 		return m, nil
 	}
@@ -65,17 +101,133 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+func (m *model) flashPressed(key string) tea.Cmd {
+	// Map the typed character to a keyboard key ID
+	id := strings.ToLower(key)
+	if key == " " {
+		id = "space"
+	}
+	if len(id) == 1 && id[0] >= 'a' && id[0] <= 'z' {
+		m.keyStates[id] = KeyFlashing
+		return flashKey(id)
+	}
+	if id == "space" {
+		m.keyStates[id] = KeyFlashing
+		return flashKey(id)
+	}
+	return nil
+}
+
+func (m model) handleKey(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch m.phase {
+	case phaseReady:
+		return m.handleReady(msg)
+	case phaseTyping:
+		return m.handleTyping(msg)
+	case phaseDone:
+		return m.handleDone(msg)
+	}
+	return m, nil
+}
+
+func (m model) handleReady(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "left":
+		if m.durationIdx > 0 {
+			m.durationIdx--
+			m.timeLeft = durations[m.durationIdx]
+		}
+	case "right":
+		if m.durationIdx < len(durations)-1 {
+			m.durationIdx++
+			m.timeLeft = durations[m.durationIdx]
+		}
+	default:
+		key := msg.String()
+		if key == "space" || (len(key) == 1 && key[0] >= 32 && key[0] <= 126) {
+			m.phase = phaseTyping
+			m.startTime = time.Now()
+			m.timeLeft = durations[m.durationIdx]
+			m2, cmd := m.handleTyping(msg)
+			return m2, tea.Batch(timerTick(), cmd)
+		}
+	}
+	return m, nil
+}
+
+func (m model) handleTyping(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	var flashCmd tea.Cmd
+
+	switch msg.String() {
+	case "backspace":
+		if len(m.input[m.wordIdx]) > 0 {
+			m.input[m.wordIdx] = m.input[m.wordIdx][:len(m.input[m.wordIdx])-1]
+		} else if m.wordIdx > 0 {
+			m.wordIdx--
+		}
+	case "space", " ":
+		if m.wordIdx < len(m.words)-1 {
+			m.wordIdx++
+		}
+		flashCmd = m.flashPressed(" ")
+	default:
+		key := msg.String()
+		if len(key) == 1 && key[0] >= 32 && key[0] <= 126 {
+			m.input[m.wordIdx] = append(m.input[m.wordIdx], rune(key[0]))
+			m.totalTyped++
+			flashCmd = m.flashPressed(key)
+		}
+	}
+	return m, flashCmd
+}
+
+func (m model) handleDone(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "tab":
+		nm := newTest(m.durationIdx)
+		return nm, nil
+	}
+	return m, nil
+}
+
+func (m *model) calcResults() {
+	m.correctChars = 0
+	m.totalTyped = 0
+	for i, word := range m.words {
+		typed := m.input[i]
+		target := []rune(word)
+		m.totalTyped += len(typed)
+		if i < m.wordIdx || (i == m.wordIdx && len(typed) > 0) {
+			for j, ch := range typed {
+				if j < len(target) && ch == target[j] {
+					m.correctChars++
+				}
+			}
+			if i < m.wordIdx {
+				m.correctChars++
+				m.totalTyped++
+			}
+		}
+	}
+	m.totalChars = m.correctChars
+}
+
+func (m model) wpm() float64 {
+	elapsed := durations[m.durationIdx]
+	minutes := float64(elapsed) / 60.0
+	return float64(m.totalChars) / 5.0 / minutes
+}
+
+func (m model) accuracy() float64 {
+	if m.totalTyped == 0 {
+		return 100.0
+	}
+	return float64(m.correctChars) / float64(m.totalTyped) * 100.0
+}
+
 func (m model) View() tea.View {
 	v := tea.NewView(m.renderView())
 	v.AltScreen = true
+	v.WindowTitle = "kbd-cli"
 	return v
-}
-
-func (m *model) markKey(keyID string) []tea.Cmd {
-	m.keyStates[keyID] = StateFlashing
-	return []tea.Cmd{
-		tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
-			return flashTickMsg{keyID: keyID}
-		}),
-	}
 }
