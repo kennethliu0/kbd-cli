@@ -1,4 +1,4 @@
-module kbd-cli
+module github.com/kennethliu0/kbd-cli
 
 go 1.25.0
 
