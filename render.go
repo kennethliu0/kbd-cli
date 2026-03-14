@@ -41,7 +41,7 @@ func (m model) renderReady() string {
 	}
 	selector := strings.Join(durs, subtleStyle.Render("  /  "))
 
-	hint := subtleStyle.Render("← → to change duration • start typing to begin")
+	hint := subtleStyle.Render("← → to change duration • start typing to begin • esc to reset")
 
 	preview := m.renderWordLines(3)
 	keyboard := m.renderKeyboard()
@@ -86,7 +86,7 @@ func (m model) renderDone() string {
 	wpmLine := resultLabelStyle.Render("wpm  ") + wpm
 	accLine := resultLabelStyle.Render("acc  ") + acc
 
-	hint := subtleStyle.Render("tab to restart • ctrl+c to exit")
+	hint := subtleStyle.Render("tab to restart • esc to menu • ctrl+c to exit")
 
 	return lipgloss.JoinVertical(lipgloss.Center,
 		"",

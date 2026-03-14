@@ -80,6 +80,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Mod&tea.ModCtrl != 0 && msg.Code == 'c' {
 			return m, tea.Quit
 		}
+		if msg.String() == "esc" {
+			nm := newTest(m.durationIdx)
+			nm.width = m.width
+			nm.height = m.height
+			return nm, nil
+		}
 		return m.handleKey(msg)
 
 	case tickMsg:
@@ -193,6 +199,8 @@ func (m model) handleDone(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab":
 		nm := newTest(m.durationIdx)
+		nm.width = m.width
+		nm.height = m.height
 		return nm, nil
 	}
 	return m, nil
