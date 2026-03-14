@@ -9,27 +9,19 @@ import (
 type flashTickMsg struct{ keyID string }
 
 type model struct {
-	keyStates  map[string]KeyState
-	main       [][]KeyDef
-	nav        [][]KeyDef
-	numpad     [][]KeyDef
-	keyLookup  map[string]string
-	testedKeys int
-	totalKeys  int
+	keyStates map[string]KeyState
+	layout    [][]KeyDef
+	keyLookup map[string]string
 }
 
 func initialModel() model {
-	main, nav, numpad := buildLayout()
-	lookup := buildKeyLookup(main, nav, numpad)
-	total := countTestableKeys(main, nav, numpad)
+	layout := buildLayout()
+	lookup := buildKeyLookup(layout)
 
 	return model{
 		keyStates: make(map[string]KeyState),
-		main:      main,
-		nav:       nav,
-		numpad:    numpad,
+		layout:    layout,
 		keyLookup: lookup,
-		totalKeys: total,
 	}
 }
 
@@ -46,17 +38,6 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		var cmds []tea.Cmd
-
-		// Check for modifier keys on any keypress
-		if msg.Mod&tea.ModShift != 0 {
-			cmds = append(cmds, m.markKey("lshift")...)
-		}
-		if msg.Mod&tea.ModCtrl != 0 {
-			cmds = append(cmds, m.markKey("lctrl")...)
-		}
-		if msg.Mod&tea.ModAlt != 0 {
-			cmds = append(cmds, m.markKey("lalt")...)
-		}
 
 		// Match the key itself
 		keyStr := msg.String()
@@ -76,7 +57,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case flashTickMsg:
 		if m.keyStates[msg.keyID] == StateFlashing {
-			m.keyStates[msg.keyID] = StateTested
+			m.keyStates[msg.keyID] = StateUntested
 		}
 		return m, nil
 	}
@@ -91,16 +72,10 @@ func (m model) View() tea.View {
 }
 
 func (m *model) markKey(keyID string) []tea.Cmd {
-	prev := m.keyStates[keyID]
 	m.keyStates[keyID] = StateFlashing
-
-	var cmds []tea.Cmd
-	if prev != StateTested && prev != StateFlashing {
-		m.testedKeys++
+	return []tea.Cmd{
+		tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
+			return flashTickMsg{keyID: keyID}
+		}),
 	}
-
-	cmds = append(cmds, tea.Tick(150*time.Millisecond, func(t time.Time) tea.Msg {
-		return flashTickMsg{keyID: keyID}
-	}))
-	return cmds
 }
