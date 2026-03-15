@@ -51,7 +51,7 @@ func (m model) renderReady() string {
 	}
 	wordListSelector := strings.Join(wlParts, subtleStyle.Render("  /  "))
 
-	hint := subtleStyle.Render("← → duration • ↑ ↓ word list • start typing to begin • esc to reset")
+	hint := subtleStyle.Render("← → duration • ↑ ↓ word list • start typing to begin • esc to reset • ctrl+c to exit")
 
 	preview := m.renderWordLines(3)
 	keyboard := m.renderKeyboard()
