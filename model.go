@@ -26,6 +26,7 @@ type model struct {
 	input        [][]rune
 	wordIdx      int
 	durationIdx  int
+	wordListIdx  int
 	timeLeft     int
 	startTime    time.Time
 	totalChars   int
@@ -41,17 +42,18 @@ type model struct {
 }
 
 func initialModel() model {
-	return newTest(1)
+	return newTest(1, 0)
 }
 
-func newTest(durationIdx int) model {
-	words := generateWords(200)
+func newTest(durationIdx, wordListIdx int) model {
+	words := generateWords(200, wordListIdx)
 	input := make([][]rune, len(words))
 	return model{
 		phase:       phaseReady,
 		words:       words,
 		input:       input,
 		durationIdx: durationIdx,
+		wordListIdx: wordListIdx,
 		timeLeft:    durations[durationIdx],
 		kbdLayout:   buildKeyboardLayout(),
 		keyStates:   make(map[string]KeyState),
@@ -81,7 +83,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		}
 		if msg.String() == "esc" {
-			nm := newTest(m.durationIdx)
+			nm := newTest(m.durationIdx, m.wordListIdx)
 			nm.width = m.width
 			nm.height = m.height
 			return nm, nil
@@ -156,6 +158,20 @@ func (m model) handleReady(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 			m.durationIdx++
 			m.timeLeft = durations[m.durationIdx]
 		}
+	case "up":
+		if m.wordListIdx > 0 {
+			nm := newTest(m.durationIdx, m.wordListIdx-1)
+			nm.width = m.width
+			nm.height = m.height
+			return nm, nil
+		}
+	case "down":
+		if m.wordListIdx < len(wordLists)-1 {
+			nm := newTest(m.durationIdx, m.wordListIdx+1)
+			nm.width = m.width
+			nm.height = m.height
+			return nm, nil
+		}
 	default:
 		key := msg.String()
 		if key == "space" || (len(key) == 1 && key[0] >= 32 && key[0] <= 126) {
@@ -198,7 +214,7 @@ func (m model) handleTyping(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m model) handleDone(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "tab":
-		nm := newTest(m.durationIdx)
+		nm := newTest(m.durationIdx, m.wordListIdx)
 		nm.width = m.width
 		nm.height = m.height
 		return nm, nil

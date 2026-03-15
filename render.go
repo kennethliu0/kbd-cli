@@ -41,7 +41,17 @@ func (m model) renderReady() string {
 	}
 	selector := strings.Join(durs, subtleStyle.Render("  /  "))
 
-	hint := subtleStyle.Render("← → to change duration • start typing to begin • esc to reset")
+	var wlParts []string
+	for i, wl := range wordLists {
+		if i == m.wordListIdx {
+			wlParts = append(wlParts, selectedDurationStyle.Render(wl.name))
+		} else {
+			wlParts = append(wlParts, unselectedDurationStyle.Render(wl.name))
+		}
+	}
+	wordListSelector := strings.Join(wlParts, subtleStyle.Render("  /  "))
+
+	hint := subtleStyle.Render("← → duration • ↑ ↓ word list • start typing to begin • esc to reset")
 
 	preview := m.renderWordLines(3)
 	keyboard := m.renderKeyboard()
@@ -51,6 +61,7 @@ func (m model) renderReady() string {
 		title,
 		"",
 		selector,
+		wordListSelector,
 		"",
 		preview,
 		"",
