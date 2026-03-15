@@ -225,29 +225,38 @@ func (m model) handleDone(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 func (m *model) calcResults() {
 	m.correctChars = 0
 	m.totalTyped = 0
+	m.totalChars = 0
 	for i, word := range m.words {
 		typed := m.input[i]
 		target := []rune(word)
-		m.totalTyped += len(typed)
 		if i < m.wordIdx || (i == m.wordIdx && len(typed) > 0) {
-			for j, ch := range typed {
-				if j < len(target) && ch == target[j] {
+			chars := max(len(typed), len(target))
+			m.totalTyped += chars
+			for j := range chars {
+				if j < len(typed) && j < len(target) && typed[j] == target[j] {
 					m.correctChars++
 				}
 			}
+			// count the space between words as a typed character
 			if i < m.wordIdx {
 				m.correctChars++
 				m.totalTyped++
 			}
 		}
 	}
-	m.totalChars = m.correctChars
+	m.totalChars = m.totalTyped
 }
 
 func (m model) wpm() float64 {
 	elapsed := durations[m.durationIdx]
 	minutes := float64(elapsed) / 60.0
-	return float64(m.totalChars) / 5.0 / minutes
+	grossWPM := float64(m.totalChars) / 5.0 / minutes
+	uncorrectedErrors := float64(m.totalChars-m.correctChars) / 5.0 / minutes
+	netWPM := grossWPM - uncorrectedErrors
+	if netWPM < 0 {
+		netWPM = 0
+	}
+	return netWPM
 }
 
 func (m model) accuracy() float64 {
