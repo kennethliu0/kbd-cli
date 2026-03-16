@@ -9,7 +9,7 @@ A monkeytype-style typing speed test for the terminal, built with [Bubble Tea](h
 - Timed typing tests (15s / 30s / 60s)
 - Live keyboard visualization with key flash on press
 - WPM and accuracy results
-- 200 most common English words
+- Multiple word lists: English 200, English 1k, English 5k
 
 ## Install
 
@@ -27,6 +27,15 @@ go build
 ## Controls
 
 - **← →** change test duration
+- **↑ ↓** change word list
 - **Start typing** to begin the test
 - **Tab** to restart after results
 - **Ctrl+C** to exit
+
+## Word Lists
+
+| List | Words | Description |
+|------|-------|-------------|
+| English 200 | 200 | Most common English words (default) |
+| English 1k | 1,000 | Common English words |
+| English 5k | 5,000 | Expanded English vocabulary |
